@@ -1,22 +1,29 @@
 services:
   - type: web
     name: matty-backend
-    env: java
+    runtime: java
     rootDir: backend
-    buildCommand: mvn clean package -DskipTests
-    startCommand: java -jar target/*.jar
+    buildCommand: "./mvnw clean package -DskipTests"
+    startCommand: "java -jar target/*.jar"
+
     envVars:
       - key: PORT
         value: 8080
+
       - key: MONGODB_URI
         sync: false
+
       - key: JWT_SECRET
         sync: false
+
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
+
       - key: CLOUDINARY_API_KEY
         sync: false
+
       - key: CLOUDINARY_API_SECRET
         sync: false
+
       - key: ALLOWED_ORIGINS
         sync: false
