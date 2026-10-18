@@ -1,5 +1,7 @@
 package com.matty.security.oauth2;
 
+import com.matty.model.User;
+import com.matty.service.AuthService;
 import com.matty.service.JwtService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
@@ -9,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -17,6 +21,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 @Slf4j
@@ -25,6 +30,7 @@ import java.util.Optional;
 public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
     private final JwtService jwtService;
+    private final AuthService authService;
     private final HttpCookieOAuth2AuthorizationRequestRepository httpCookieOAuth2AuthorizationRequestRepository;
 
     @Value("${app.oauth2.authorized-redirect-uri:http://localhost:5173/oauth2/redirect}")
@@ -52,11 +58,35 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
 
         String targetUrl = redirectUri.filter(this::isAuthorizedRedirectUri).orElse(defaultRedirectUri);
 
-        UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+        User mattyUser = null;
+        Object principal = authentication.getPrincipal();
+
+        if (principal instanceof UserPrincipal userPrincipal) {
+            mattyUser = userPrincipal.getUser();
+        } else if (principal instanceof OAuth2User oAuth2User) {
+            String registrationId = "google";
+            if (authentication instanceof OAuth2AuthenticationToken oauthToken) {
+                registrationId = oauthToken.getAuthorizedClientRegistrationId();
+            }
+            User.AuthProvider provider;
+            try {
+                provider = User.AuthProvider.valueOf(registrationId.toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                provider = User.AuthProvider.GOOGLE;
+            }
+            OAuth2UserInfo userInfo = OAuth2UserInfoFactory.getOAuth2UserInfo(registrationId, oAuth2User.getAttributes());
+            mattyUser = authService.processOAuthUser(provider, userInfo);
+        }
+
+        if (mattyUser == null) {
+            log.error("Unable to resolve Matty user from principal of type: {}", principal != null ? principal.getClass().getName() : "null");
+            throw new IllegalStateException("Unable to resolve Matty user from authenticated principal");
+        }
+
         String token = jwtService.generateToken(
-                userPrincipal.getId(),
-                userPrincipal.getEmail(),
-                userPrincipal.getUser().getRole().name()
+                mattyUser.getId(),
+                mattyUser.getEmail(),
+                mattyUser.getRole().name()
         );
 
         return UriComponentsBuilder.fromUriString(targetUrl)

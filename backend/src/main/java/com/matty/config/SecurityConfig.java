@@ -1,6 +1,7 @@
 package com.matty.config;
 
 import com.matty.security.oauth2.CustomOAuth2UserService;
+import com.matty.security.oauth2.CustomOidcUserService;
 import com.matty.security.oauth2.HttpCookieOAuth2AuthorizationRequestRepository;
 import com.matty.security.oauth2.OAuth2AuthenticationFailureHandler;
 import com.matty.security.oauth2.OAuth2AuthenticationSuccessHandler;
@@ -31,6 +32,7 @@ public class SecurityConfig {
     private final CustomUserDetailsService userDetailsService;
     private final CorsConfigurationSource corsConfigurationSource;
     private final CustomOAuth2UserService customOAuth2UserService;
+    private final CustomOidcUserService customOidcUserService;
     private final OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
     private final OAuth2AuthenticationFailureHandler oAuth2AuthenticationFailureHandler;
     private final HttpCookieOAuth2AuthorizationRequestRepository httpCookieOAuth2AuthorizationRequestRepository;
@@ -61,6 +63,7 @@ public class SecurityConfig {
                 )
                 .userInfoEndpoint(userInfo -> userInfo
                     .userService(customOAuth2UserService)
+                    .oidcUserService(customOidcUserService)
                 )
                 .successHandler(oAuth2AuthenticationSuccessHandler)
                 .failureHandler(oAuth2AuthenticationFailureHandler)
