@@ -1,10 +1,20 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+const rawBase = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+const API_BASE = rawBase.endsWith('/') ? rawBase.slice(0, -1) : rawBase;
 
-function getToken() {
+export function getBackendBaseUrl() {
+  return API_BASE.endsWith('/api') ? API_BASE.slice(0, -4) : API_BASE;
+}
+
+export function getOAuthUrl(provider) {
+  const redirectUri = `${window.location.origin}/oauth2/redirect`;
+  return `${API_BASE}/auth/oauth2/authorize/${provider}?redirect_uri=${encodeURIComponent(redirectUri)}`;
+}
+
+export function getToken() {
   return localStorage.getItem('matty_token');
 }
 
-function authHeaders() {
+export function authHeaders() {
   const token = getToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
@@ -20,8 +30,13 @@ async function request(url, options = {}) {
   });
 
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(error.error || 'Request failed');
+    const errorData = await res.json().catch(() => ({ error: res.statusText }));
+    const errorMsg =
+      errorData.error ||
+      (errorData.errors && Object.values(errorData.errors)[0]) ||
+      res.statusText ||
+      'Request failed';
+    throw new Error(errorMsg);
   }
 
   return res.json();
@@ -29,9 +44,52 @@ async function request(url, options = {}) {
 
 // ===== Auth =====
 export const auth = {
-  register: (data) => request('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
-  login: (data) => request('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+  register: (data) =>
+    request('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...data,
+        username: data.username ? data.username.trim() : '',
+        email: data.email ? data.email.trim().toLowerCase() : '',
+      }),
+    }),
+  login: (data) =>
+    request('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...data,
+        email: data.email ? data.email.trim().toLowerCase() : '',
+      }),
+    }),
+  linkAccount: (data) =>
+    request('/auth/link-account', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...data,
+        email: data.email ? data.email.trim().toLowerCase() : '',
+      }),
+    }),
   me: () => request('/auth/me'),
+  setSession: (response) => {
+    if (response.token) {
+      localStorage.setItem('matty_token', response.token);
+    }
+    const user = {
+      id: response.id,
+      username: response.username,
+      email: response.email,
+      role: response.role,
+      plan: response.plan,
+      profilePicUrl: response.profilePicUrl,
+      provider: response.provider,
+    };
+    localStorage.setItem('matty_user', JSON.stringify(user));
+    return user;
+  },
+  logout: () => {
+    localStorage.removeItem('matty_token');
+    localStorage.removeItem('matty_user');
+  },
 };
 
 // ===== Designs =====
