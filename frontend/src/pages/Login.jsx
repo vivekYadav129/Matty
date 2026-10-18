@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { auth, getOAuthUrl } from '../services/api';
 import { 
   Mail, Lock, User, Eye, EyeOff, 
@@ -7,7 +7,15 @@ import {
 } from 'lucide-react';
 
 export default function Login() {
-  const [isLogin, setIsLogin] = useState(true);
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  const isRegisterRoute = location.pathname === '/signup' || 
+                          location.pathname === '/register' || 
+                          searchParams.get('mode') === 'register';
+
+  const [isLogin, setIsLogin] = useState(!isRegisterRoute);
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState(null);
   const [error, setError] = useState('');
@@ -19,8 +27,7 @@ export default function Login() {
     password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+
 
   useEffect(() => {
     // Check if user is already authenticated
@@ -72,6 +79,16 @@ export default function Login() {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, [searchParams, navigate]);
+
+  useEffect(() => {
+    if (linkingState) return;
+    if (location.pathname === '/signup' || location.pathname === '/register' || searchParams.get('mode') === 'register') {
+      setIsLogin(false);
+    } else if (location.pathname === '/login' || location.pathname === '/' || searchParams.get('mode') === 'login') {
+      setIsLogin(true);
+    }
+  }, [location.pathname, searchParams, linkingState]);
+
 
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });

@@ -20,20 +20,31 @@ export function authHeaders() {
 }
 
 async function request(url, options = {}) {
-  const res = await fetch(`${API_BASE}${url}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...authHeaders(),
-      ...options.headers,
-    },
-    ...options,
-  });
+  let res;
+  try {
+    res = await fetch(`${API_BASE}${url}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+        ...options.headers,
+      },
+      ...options,
+    });
+  } catch (netErr) {
+    console.error(`Network error reaching ${url}:`, netErr);
+    throw new Error('Unable to connect to the backend server. Please verify your connection or try again shortly.');
+  }
 
   if (!res.ok) {
+    if (res.status === 502 || res.status === 503 || res.status === 504) {
+      throw new Error('The backend service is currently unavailable or waking up. Please try again shortly.');
+    }
+
     const errorData = await res.json().catch(() => ({ error: res.statusText }));
     const errorMsg =
       errorData.error ||
       (errorData.errors && Object.values(errorData.errors)[0]) ||
+      errorData.message ||
       res.statusText ||
       'Request failed';
     throw new Error(errorMsg);
@@ -41,6 +52,7 @@ async function request(url, options = {}) {
 
   return res.json();
 }
+
 
 // ===== Auth =====
 export const auth = {
